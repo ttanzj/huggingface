@@ -1,0 +1,39 @@
+name: Keep ttanzj/Photos Space Alive (Random 1-2 天之前)
+
+on:
+  schedule:
+    # 基础触发：每天 UTC 时间 00:00 ~ 23:59 之间随机运行（GitHub 会随机选择时间）
+    - cron: '0 * * * *'   # 每小时检查一次，但实际执行时间随机（见下面步骤）
+
+  workflow_dispatch:      # 允许你手动触发测试
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait random time (24 to 48 hours from last run)
+        run: |
+          # 生成 24 ~ 48 小时之间的随机秒数
+          RANDOM_SECONDS=$(( (RANDOM % 86400) + 86400 ))  # 86400 = 24小时
+          echo "Waiting random time: $((RANDOM_SECONDS / 3600)) hours $(( (RANDOM_SECONDS % 3600) / 60 )) minutes"
+          sleep $RANDOM_SECONDS
+
+      - name: Wake up ttanzj/Photos Space
+        run: |
+          echo "🌟 Starting to wake up https://ttanzj-photos.hf.space"
+          echo "Time: $(date -u)"
+          
+          # 使用 curl 访问（带 User-Agent 更像真实浏览器）
+          RESPONSE=$(curl -I -s -L -A "Mozilla/5.0 (compatible; HF-KeepAlive/1.0; +https://github.com/ttanzj)" \
+            https://ttanzj-photos.hf.space 2>&1)
+          
+          echo "Response:"
+          echo "$RESPONSE"
+          
+          if echo "$RESPONSE" | grep -q "200\|302\|503"; then
+            echo "✅ Space awakened successfully (or already running)"
+          else
+            echo "⚠️  Wakeup may have issues, check logs"
+          fi
+
