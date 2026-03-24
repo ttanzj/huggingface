@@ -1,0 +1,93 @@
+const UPSTREAM = 'https://ttanzj-photos.hf.space';
+
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  const url = new URL(request.url);
+  const targetUrl = UPSTREAM + url.pathname + url.search;
+
+  const headers = new Headers(request.headers);
+  headers.set('Host', new URL(UPSTREAM).host);
+  headers.set('Referer', UPSTREAM);
+  headers.set('X-Forwarded-Host', url.host);      // Gradio 依赖这个
+  headers.set('X-Forwarded-Proto', 'https');
+  headers.set('X-Real-IP', headers.get('cf-connecting-ip') || '');
+  headers.delete('cf-connecting-ip');
+  headers.delete('cf-ipcountry');
+  headers.delete('cf-ray');
+
+  if (headers.get('upgrade') === 'websocket') {
+    return handleWebSocket(request, targetUrl);
+  }
+
+  let response = await fetch(new Request(targetUrl, {
+    method: request.method,
+    headers: headers,
+    body: request.body,
+    redirect: 'manual',
+  }));
+
+  response = new Response(response.body, response);
+
+  // 处理重定向
+  const location = response.headers.get('location');
+  if (location) {
+    response.headers.set('location', location.replace(UPSTREAM, ''));
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('text/html') || contentType.includes('javascript')) {
+    let text = await response.text();
+
+    // 基础替换
+    text = text.replace(new RegExp(UPSTREAM.replace(/https?:\/\//, ''), 'g'), '');
+    text = text.replace(/https?:\/\/[^"'\s]*?\.hf\.space/g, '');
+
+    // 强制 Gradio 信任当前域名（核心修复）
+    const currentHost = `https://${url.host}`;
+    text = text.replace(/window\.location\.origin/g, `"${currentHost}"`);
+    text = text.replace(/"server_name":\s*"[^"]*"/g, `"server_name": "${url.host}"`);
+    text = text.replace(/"root":\s*"[^"]*"/g, `"root": ""`);
+    text = text.replace(/"public_api_url":\s*"[^"]*"/g, `"public_api_url": "${currentHost}"`);
+
+    // 最强注入：直接重写 Gradio 的 config 和安全检查（针对你的 Photos Space 特别有效）
+    text = text.replace(
+      /<\/head>/i,
+      `<script>
+        window.__gradio_space_host = "${url.host}";
+        if (window.gradio_config) {
+          window.gradio_config.server_name = "${url.host}";
+          window.gradio_config.root = "";
+        }
+        // 覆盖 Gradio 内部 host 检查
+        Object.defineProperty(window.location, 'origin', { value: "${currentHost}", writable: false });
+      </script></head>`
+    );
+
+    response = new Response(text, response);
+  }
+
+  // CORS
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  response.headers.set('Access-Control-Allow-Headers', '*');
+
+  return response;
+}
+
+async function handleWebSocket(request, targetUrl) {
+  const { 0: client, 1: server } = new WebSocketPair();
+  const wsResponse = new Response(null, { status: 101, webSocket: server });
+
+  const targetWsUrl = targetUrl.replace(/^http/, 'ws');
+  const targetSocket = new WebSocket(targetWsUrl);
+
+  targetSocket.addEventListener('message', e => server.send(e.data));
+  targetSocket.addEventListener('close', () => server.close());
+  server.addEventListener('message', e => targetSocket.send(e.data));
+  server.addEventListener('close', () => targetSocket.close());
+
+  return wsResponse;
+}
