@@ -1,0 +1,29 @@
+name: Sun-Panel 每12小时自动保活
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'      # 每12小时执行一次（UTC时间：每天 0点 和 12点）
+
+  workflow_dispatch:            # 支持手动触发（推荐测试用）
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检查并保活 Sun-Panel
+        run: |
+          echo "🌟 开始执行 Sun-Panel 保活任务..."
+          echo "当前时间: $(date -u)"
+          
+          echo "1. Ping 自定义 Cloudflare 代理域名（推荐）..."
+          curl -I -L -f --max-time 30 -w "状态码: %{http_code}\n" "https://sunpanel.你的域名.com/" || echo "自定义域名访问失败（可能正常，如果刚睡醒）"
+          
+          echo "2. Ping Hugging Face 官方 Space 作为备份..."
+          curl -I -L -f --max-time 30 -w "状态码: %{http_code}\n" "https://ttanzj-sun-panel.hf.space/" || echo "官方HF域名访问失败"
+          
+          echo "3. 额外 Ping 首页确保唤醒..."
+          curl -I -L -f --max-time 45 -w "状态码: %{http_code}\n" "https://sunpanel.你的域名.com/" || true
+          
+          echo "✅ 保活请求已发送完成！"
+          echo "下次自动执行将在12小时后。"
