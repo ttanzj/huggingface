@@ -1,0 +1,21 @@
+name: Keep Alive - ttanzj/sun (via Proxy)
+
+on:
+  schedule:
+    - cron: '0 2 * * *'     # 每天 UTC 时间 2:00 执行（北京时间早上 10:00）
+  workflow_dispatch:        # 允许手动触发
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 访问自定义代理域名（保活 HF Space）
+        run: |
+          curl -I -L -f "https://sun.yourdomain.com" || echo "访问失败但继续"
+          echo "✅ 已触发保活请求"
+
+      - name: 直接访问 HF Space（双保险）
+        run: |
+          curl -I -L -f "https://huggingface.co/spaces/ttanzj/sun" || echo "直接访问失败"
+          echo "✅ HF Space 已保活"
