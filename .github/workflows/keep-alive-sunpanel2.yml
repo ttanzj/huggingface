@@ -1,0 +1,25 @@
+name: SunPanel Keep Alive (每12小时)
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'     # 每12小时执行一次（UTC 时间）
+  workflow_dispatch:           # 允许手动触发
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 访问 Hugging Face Space 保活
+        run: |
+          echo "正在访问 Space 保持活跃..."
+          # 使用 curl 访问主页面，模拟用户访问
+          curl -I -L -f "https://ttanzj-sun2.hf.space" || echo "访问失败，但继续执行"
+          
+          # 可选：访问特定路径（如果你的面板有登录页或首页）
+          curl -I -L -f "https://ttanzj-sun2.hf.space/" || true
+          
+          echo "保活请求已发送（$(date)）"
+
+      - name: 打印当前时间
+        run: echo "当前 UTC 时间: $(date -u)"
