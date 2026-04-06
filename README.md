@@ -1,6 +1,6 @@
 ## - workers-sunpanel是sunpanel在CF的反代，用于实现自定义域名
 
-#### const TARGET = "https://****-***.hf.space"; 
+#### const TARGET = "https://****-****.hf.space"; 
 
 #### // 你的 HF Space 实际域名（通常是 username-space.hf.space）模板通用，修改项目域名
 
