@@ -1,6 +1,6 @@
 name: Keep Alive - ttanz/sun (via Proxy)
 
-于:
+on:
   schedule:
     - cron: '0 2 * * *'     # 每天 UTC 时间 2:00 执行（北京时间早上 10:00）
   workflow_dispatch:        # 允许手动触发
