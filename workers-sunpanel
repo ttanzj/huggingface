@@ -1,59 +1,25 @@
-// === 配置区 ===
-const TARGET = "https://ttanzj-sun.hf.space";  // 你的 HF Space 实际域名（通常是 username-space.hf.space）
-
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-
-    // 构造目标 URL
-    let targetUrl = TARGET + url.pathname;
-
-    // 保留查询参数
-    if (url.search) {
-      targetUrl += url.search;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的 AI 项目</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: #f8f9fa; }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
     }
-
-    // 复制请求头（删除可能导致问题的头）
-    const headers = new Headers(request.headers);
-    headers.delete("host");
-    headers.delete("cf-connecting-ip");
-    headers.delete("cf-ipcountry");
-    headers.delete("cf-ray");
-    headers.set("host", new URL(TARGET).host);
-
-    // 发起请求
-    let response;
-    try {
-      response = await fetch(targetUrl, {
-        method: request.method,
-        headers: headers,
-        body: request.body,
-        redirect: "manual",   // 手动处理重定向，避免循环
-      });
-    } catch (err) {
-      return new Response("Proxy Error: " + err.message, { status: 502 });
-    }
-
-    // 复制响应头
-    const responseHeaders = new Headers(response.headers);
-    responseHeaders.delete("content-security-policy"); // 可选：放宽 CSP 限制
-    responseHeaders.delete("x-frame-options");
-
-    // 处理重定向（避免重定向回 hf.space）
-    if (response.status >= 300 && response.status < 400) {
-      const location = responseHeaders.get("location");
-      if (location) {
-        if (location.startsWith(TARGET) || location.includes("hf.space")) {
-          const newLocation = location.replace(TARGET, url.origin);
-          responseHeaders.set("location", newLocation);
-        }
-      }
-    }
-
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders,
-    });
-  }
-};
+  </style>
+</head>
+<body>
+  <iframe 
+    src="https://ttanzj-sun.hf.space" 
+    allowfullscreen 
+    allow="fullscreen; camera; microphone; clipboard-write;">
+  </iframe>
+</body>
+</html>
