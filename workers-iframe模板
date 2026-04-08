@@ -1,7 +1,7 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    // 目标 Hugging Face Space 的实际主机地址
+    // 目标 Hugging Face Space 的实际主机地址，用户名-项目名
     const targetHost = "***-***.hf.space";
 
     // ==================== 纯 if 嵌套路径判断 ====================
