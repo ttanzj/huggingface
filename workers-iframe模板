@@ -1,28 +1,60 @@
+/**
+ * =========================================
+ * 双域方案（页面走 CF，交互直连 HF）
+ * 项目：ttanz-sun
+ * 风控友好说明版
+ * =========================================
+ *
+ * 设计目标：
+ * 1️⃣ Cloudflare Worker 仅返回页面 HTML（页面壳）
+ * 2️⃣ 所有 Gradio 交互请求直接由浏览器连接 Hugging Face
+ * 3️⃣ Worker 不反代、不改写、不代理 HF 接口
+ * 4️⃣ 功能完整（页面可正常显示和交互），封号风险极低
+ *
+ * 风控理由：
+ * - HF 风控主要看请求行为（API / queue / predict / 自动化）
+ * - 页面文字、UI 装饰、header 透明等，对 HF 风控几乎无影响
+ * - iframe 指向 hf.space → 浏览器直接交互 → HF 看到的是“正常用户行为”
+ */
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
 
-    // 只允许 GET，防止被误用为接口
+    // -----------------------------
+    // 安全策略 1：只允许 GET
+    // -----------------------------
+    // 避免 Worker 被当作接口服务或反代
     if (request.method !== "GET") {
       return new Response("Method Not Allowed", { status: 405 });
     }
 
-    // 只服务首页
+    // -----------------------------
+    // 安全策略 2：只服务首页
+    // -----------------------------
+    // 避免 Worker 成为通用代理
     if (url.pathname !== "/" && url.pathname !== "/index.html") {
       return new Response("Not Found", { status: 404 });
     }
 
+    // -----------------------------
+    // 返回页面壳 HTML
+    // -----------------------------
+    // 页面壳仅用于承载 iframe
+    // 所有 HF 交互由浏览器直接连接 hf.space
     return new Response(HTML, {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store" // 避免缓存调试混乱
       }
     });
   }
 };
 
-// ==================== 页面壳 HTML ====================
+// =========================================
+// 页面壳 HTML
+// =========================================
 const HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -31,6 +63,13 @@ const HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
+    /* -----------------------------
+       页面整体样式
+       -----------------------------
+       - 占满整个窗口
+       - 背景色暗黑
+       - 简单安全字体
+    */
     html, body {
       margin: 0;
       padding: 0;
@@ -39,11 +78,25 @@ const HTML = `<!DOCTYPE html>
       font-family: system-ui, -apple-system, BlinkMacSystemFont;
     }
 
+    /* -----------------------------
+       容器
+       -----------------------------
+       - 承载 iframe
+       - 100% 高度
+    */
     .container {
       height: 100vh;
       width: 100%;
     }
 
+    /* -----------------------------
+       iframe 样式
+       -----------------------------
+       - 全屏展示
+       - 无边框
+       - 背景黑色
+       - 允许复制粘贴（Gradio 常用）
+    */
     iframe {
       width: 100%;
       height: 100%;
@@ -55,13 +108,19 @@ const HTML = `<!DOCTYPE html>
 <body>
 
   <!--
-    iframe 直接指向 hf.space
-    所有 Gradio 交互均为浏览器直连
-    Cloudflare Worker 不参与任何接口流量
+    =========================================
+    核心部分：iframe
+    说明：
+    1️⃣ src 指向 hf.space，浏览器直接连接
+    2️⃣ Worker 不参与接口，不反代，不改写
+    3️⃣ referrerpolicy="no-referrer" 可选，减少来源信息
+    4️⃣ allow="clipboard-read; clipboard-write" 允许 Gradio 正常使用剪贴板
+    5️⃣ 此方案在 HF 风控视角下 = 普通用户访问
+    =========================================
   -->
   <div class="container">
     <iframe
-      src="https://****-****.hf.space"
+      src="https://****-*****.hf.space"
       loading="lazy"
       referrerpolicy="no-referrer"
       allow="clipboard-read; clipboard-write"
