@@ -1,77 +1,72 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    // 目标 Hugging Face Space 的实际主机地址，用户名-项目名
-    const targetHost = "***-***.hf.space";
 
-    // ==================== 纯 if 嵌套路径判断 ====================
-    if (url.pathname === "/" || url.pathname === "") {
-      return handleProxy(request, targetHost, "/");
-    } 
-    else if (url.pathname.startsWith("/assets/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/static/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/gradio/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/queue/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/api/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/call/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/file=") || url.pathname.includes("/file/")) {
-      return handleProxy(request, targetHost, url.pathname + url.search);
-    } 
-    else if (url.pathname.startsWith("/spaces/ttanz/sun")) {
-      const newPath = url.pathname.replace("/spaces/ttanz/sun", "") || "/";
-      return handleProxy(request, targetHost, newPath + url.search);
-    } 
-    else {
-      // 兜底所有其他路径
-      return handleProxy(request, targetHost, url.pathname + url.search);
+    // 只允许 GET，防止被误用为接口
+    if (request.method !== "GET") {
+      return new Response("Method Not Allowed", { status: 405 });
     }
-  }
-};
 
-// 基础代理函数（保持最简）
-async function handleProxy(request, targetHost, targetPath) {
-  const targetUrl = `https://${targetHost}${targetPath}`;
+    // 只服务首页
+    if (url.pathname !== "/" && url.pathname !== "/index.html") {
+      return new Response("Not Found", { status: 404 });
+    }
 
-  const headers = new Headers(request.headers);
-  headers.set("Host", targetHost);
-  headers.set("Referer", `https://${targetHost}/`);
-
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
+    return new Response(HTML, {
+      status: 200,
       headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "*"
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store"
       }
     });
   }
+};
 
-  const response = await fetch(targetUrl, {
-    method: request.method,
-    headers: headers,
-    body: request.body,
-    redirect: "manual"
-  });
+// ==================== 页面壳 HTML ====================
+const HTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>ttanz-sun</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  const newHeaders = new Headers(response.headers);
-  newHeaders.set("Access-Control-Allow-Origin", "*");
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #0b0b0b;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+    }
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: newHeaders
-  });
-}
+    .container {
+      height: 100vh;
+      width: 100%;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+
+  <!--
+    iframe 直接指向 hf.space
+    所有 Gradio 交互均为浏览器直连
+    Cloudflare Worker 不参与任何接口流量
+  -->
+  <div class="container">
+    <iframe
+      src="https://ttanz-sun.hf.space"
+      loading="lazy"
+      referrerpolicy="no-referrer"
+      allow="clipboard-read; clipboard-write"
+    ></iframe>
+  </div>
+
+</body>
+</html>`;
