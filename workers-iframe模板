@@ -1,7 +1,7 @@
 /**
  * =========================================
  * 双域方案（页面走 CF，交互直连 HF）
- * 项目：ttanz-sun
+ * 项目：*****-****
  * 风控友好说明版
  * =========================================
  *
@@ -59,7 +59,7 @@ const HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>ttanz-sun</title>
+  <title>*****-****</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
