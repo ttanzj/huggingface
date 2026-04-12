@@ -1,4 +1,4 @@
-name: Keep ttanzj/Photos Alive (Daily Random)
+name: Keep ttanz/pansou Alive (Daily Random)
 
 on:
   schedule:
@@ -11,15 +11,15 @@ jobs:
     timeout-minutes: 5       # 防止意外卡住，最多跑 5 分钟
 
     steps:
-      - name: Wake up ttanzj/Photos Space
+      - name: Wake up ttanz/pansou Space
         run: |
           echo "🌟 Starting wake up at $(date -u)"
-          echo "Target: https://ttanzj-photos.hf.space"
+          echo "Target: https://ttanz-pansou.hf.space"
           
           # 发送请求（带浏览器 User-Agent，更容易唤醒）
           RESPONSE=$(curl -I -s -L -m 30 \
             -A "Mozilla/5.0 (compatible; HF-KeepAlive/1.0)" \
-            https://ttanzj-photos.hf.space)
+            https://ttanz-pansou.hf.space)
           
           echo "Response headers:"
           echo "$RESPONSE"
