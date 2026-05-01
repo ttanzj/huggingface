@@ -1,21 +1,34 @@
-name: Keep Alive - ttanz/sun (via Proxy)
+name: Keep ttanz/pansou Alive (Daily Random)
 
 on:
   schedule:
-    - cron: '0 2 * * *'     # 每天 UTC 时间 2:00 执行（北京时间早上 10:00）
-  workflow_dispatch:        # 允许手动触发
+    - cron: '*/12  * * *'   # 每 12 小时检查一次（GitHub 会随机分配实际运行时间）
+  workflow_dispatch:         # 允许手动测试
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
+    timeout-minutes: 5       # 防止意外卡住，最多跑 5 分钟
 
     steps:
-      - name: 访问自定义代理域名（保活 HF Space）
+      - name: Wake up ttanz/sun Space
         run: |
-          curl -I -L -f "https://sun.yourdamin.com" || echo "访问失败但继续"
-          echo "✅ 已触发保活请求"
+          echo "🌟 Starting wake up at $(date -u)"
+          echo "Target: https://ttanz-sun.hf.space"
+          
+          # 发送请求（带浏览器 User-Agent，更容易唤醒）
+          RESPONSE=$(curl -I -s -L -m 30 \
+            -A "Mozilla/5.0 (compatible; HF-KeepAlive/1.0)" \
+            https://ttanz-pansou.hf.space)
+          
+          echo "Response headers:"
+          echo "$RESPONSE"
+          
+          if echo "$RESPONSE" | grep -q "200\|302\|503"; then
+            echo "✅ Successfully pinged! Space should be awake now."
+          else
+            echo "⚠️  Got unexpected response, but ping was sent."
+          fi
 
-      - name: 直接访问 HF Space（双保险）
-        run: |
-          curl -I -L -f "https://huggingface.co/spaces/ttanz/sun" || echo "直接访问失败"
-          echo "✅ HF Space 已保活"
+      - name: Summary
+        run: echo "Job completed at $(date -u)"
