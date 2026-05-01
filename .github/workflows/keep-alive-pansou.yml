@@ -2,7 +2,7 @@ name: Keep ttanz/pansou Alive (Daily Random)
 
 on:
   schedule:
-    - cron: '*/1440 * * * *'   # 每 24 小时检查一次（GitHub 会随机分配实际运行时间）
+    - cron: '*/12  * * *'   # 每 24 小时检查一次（GitHub 会随机分配实际运行时间）
   workflow_dispatch:         # 允许手动测试
 
 jobs:
