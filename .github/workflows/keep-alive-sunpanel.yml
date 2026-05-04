@@ -19,7 +19,7 @@ jobs:
           # 发送请求（带浏览器 User-Agent，更容易唤醒）
           RESPONSE=$(curl -I -s -L -m 30 \
             -A "Mozilla/5.0 (compatible; HF-KeepAlive/1.0)" \
-            https://ttanz-pansou.hf.space)
+            https://ttanz-sun.hf.space)
           
           echo "Response headers:"
           echo "$RESPONSE"
