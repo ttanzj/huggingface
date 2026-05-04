@@ -1,6 +1,6 @@
 name: Keep ttanz/openlist Alive (Daily Random)
 
-于:
+on:
   schedule:
     - cron: '*/720 * * * *'   # 每 12 小时检查一次（GitHub 会随机分配实际运行时间）
   workflow_dispatch:         # 允许手动测试
