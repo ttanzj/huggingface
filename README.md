@@ -6,4 +6,4 @@
 
  ## - keep-alive-openlist.yml是openlist自动保活
  
-## [Openlist](https://github.com/OpenListTeam/OpenList)原项目地址，[添加网盘说明书](https://doc.oplist.org/)
+## [Openlist](https://github.com/OpenListTeam/OpenList)原项目地址，[说明书](https://doc.oplist.org/guide)
