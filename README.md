@@ -3,3 +3,7 @@
  ## - keep-alive-sunpanel.yml是sunpanel自动保活
 
  ## - keep-alive-pansou.yml是pansou自动保活,但已部署未启用
+
+ ## - keep-alive-openlist.yml是openlist自动保活
+ 
+##[Openlist](https://github.com/OpenListTeam/OpenList）原项目地址，[添加网盘说明书](https://doc.oplist.org/guide/drivers/google_drive?use_xbridge3=true&loader_name=forest&need_sec_link=1&sec_link_scene=im&theme=light)
