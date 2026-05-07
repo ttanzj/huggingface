@@ -1,9 +1,9 @@
-name: Backup HF Datasets to WebDAV
+name: Backup HF Datasets to WebDAV (Multi + 7d + Manual)
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天自动运行
-  workflow_dispatch:    # 👈 这个就是【手动触发】开关
+    - cron: '0 0 * *'  # 每天 UTC 0点
+  workflow_dispatch:   # ✅ 手动触发
 
 jobs:
   backup:
@@ -35,7 +35,7 @@ jobs:
           mkdir -p backups
           DATE=$(date -u +%Y-%m-%d)
 
-          # 在这里填你的多个数据集
+          # ====================== 你的数据集列表 ======================
           DATASETS=(
             "ttanz/sun"
             "ttanz/openlist"
@@ -44,41 +44,46 @@ jobs:
           echo "BACKUP_SUCCESS=true" >> $GITHUB_ENV
 
           for ds in "${DATASETS[@]}"; do
-            echo "===== Backup $ds ====="
+            echo "===== 正在备份: $ds ====="
             SAFE_NAME=$(echo "$ds" | tr '/' '_')
-            ZIP_FILE="backups/hf_${SAFE_NAME}_${DATE}.tar.gz"
+            ARCHIVE="backups/hf_${SAFE_NAME}_${DATE}.tar.gz"
 
             if python -c "
             from datasets import load_dataset
             ds = load_dataset('$ds')
             ds.save_to_disk('./tmp_ds')
             "; then
-              tar -zcvf "$ZIP_FILE" tmp_ds/
+              tar -zcvf "$ARCHIVE" tmp_ds/
               rm -rf tmp_ds
             else
-              echo "ERROR: $ds 备份失败"
+              echo "ERROR: 备份失败 $ds"
               echo "BACKUP_SUCCESS=false" >> $GITHUB_ENV
             fi
           done
 
-      # 上传到 WebDAV
+      # ====================== 上传到 WebDAV (稳定版) ======================
       - name: Upload to WebDAV
-        uses: b3buntaro/webdav-upload-action@v1
+        uses: rclone/rclone-action@v1
         with:
-          host: ${{ secrets.WEBDAV_HOST }}
-          username: ${{ secrets.WEBDAV_USER }}
-          password: ${{ secrets.WEBDAV_PASS }}
-          local_path: backups/
-          remote_path: /backups/huggingface/
+          config: |
+            [webdav]
+            type = webdav
+            url = ${{ secrets.WEBDAV_HOST }}
+            vendor = other
+            user = ${{ secrets.WEBDAV_USER }}
+            pass = ${{ secrets.WEBDAV_PASS }}
+          args: copy backups/ webdav:/backups/huggingface/
 
-      # 只有全部成功，才清理7天前的旧备份
-      - name: Clean old files (keep 7 days)
+      # ====================== 清理7天前的旧文件 (仅备份成功时执行) ======================
+      - name: Clean old backups (keep 7 days)
         if: env.BACKUP_SUCCESS == 'true'
-        uses: b3buntaro/webdav-upload-action@v1
+        uses: rclone/rclone-action@v1
         with:
-          host: ${{ secrets.WEBDAV_HOST }}
-          username: ${{ secrets.WEBDAV_USER }}
-          password: ${{ secrets.WEBDAV_PASS }}
-          remote_path: /backups/huggingface/
-          clean_remote: true
-          retention_days: 7
+          config: |
+            [webdav]
+            type = webdav
+            url = ${{ secrets.WEBDAV_HOST }}
+            vendor = other
+            user = ${{ secrets.WEBDAV_USER }}
+            pass = ${{ secrets.WEBDAV_PASS }}
+          args: delete --min-age 7d webdav:/backups/huggingface/
