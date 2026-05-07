@@ -1,0 +1,61 @@
+name: Backup HF Dataset to WebDAV
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天 UTC 0 点
+  workflow_dispatch:      # 手动触发
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install datasets huggingface_hub
+
+      - name: Login to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          huggingface-cli login --token "$HF_TOKEN" --add-to-git-credential
+
+      - name: Download private dataset
+        env:
+          HF_DATASET: "用户名/数据集名"
+          SAVE_DIR: "./hf_dataset"
+        run: |
+          mkdir -p "$SAVE_DIR"
+          python - <<EOF
+          from datasets import load_dataset
+          ds = load_dataset("${HF_DATASET}")
+          ds.save_to_disk("${SAVE_DIR}")
+          EOF
+
+      # 压缩备份
+      - name: Compress backup
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          BACKUP_FILE="hf_dataset_backup_${DATE}.tar.gz"
+          tar -zcvf "$BACKUP_FILE" hf_dataset/
+          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
+
+      # 上传到 WebDAV
+      - name: Upload to WebDAV
+        uses: b3buntaro/webdav-upload-action@v1
+        with:
+          host: ${{ secrets.WEBDAV_HOST }}
+          username: ${{ secrets.WEBDAV_USER }}
+          password: ${{ secrets.WEBDAV_PASS }}
+          local_path: ${{ env.BACKUP_FILE }}
+          remote_path: /backups/huggingface/
