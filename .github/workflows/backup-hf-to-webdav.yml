@@ -46,7 +46,7 @@ jobs:
         run: |
           hf auth login --token $HF_TOKEN --add-to-git-credential
           echo "✅ HF 登录成功"
-          hf env                     # 显示环境信息，替代 whoami
+          hf env
 
       - name: Generate backup date
         id: date
@@ -86,4 +86,6 @@ jobs:
 
       - name: Show current backups
         if: success()
-        run: rclone ls webdav:"${{ env.BACKUP_PATH }}" --dirs-only
+        run: |
+          echo "📋 当前备份目录列表："
+          rclone ls webdav:"${{ env.BACKUP_PATH }}" --human-readable
