@@ -42,11 +42,11 @@ jobs:
           pass = $(rclone obscure "${WEBDAV_PASS}")
           EOF
 
-      - name: Login to Hugging Face (New CLI)
+      - name: Login to Hugging Face
         run: |
           hf auth login --token $HF_TOKEN --add-to-git-credential
           echo "✅ HF 登录成功"
-          hf whoami
+          hf env                     # 显示环境信息，替代 whoami
 
       - name: Generate backup date
         id: date
