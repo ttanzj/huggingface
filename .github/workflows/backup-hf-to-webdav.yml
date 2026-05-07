@@ -1,9 +1,9 @@
-name: Backup Multiple HF Datasets to WebDAV
+name: Backup HF Datasets to WebDAV
 
 on:
   schedule:
-    - cron: '0 2 * * *'        # 每天北京时间上午10点
-  workflow_dispatch:
+    - cron: '0 0 * * *'      # 每天北京时间早上 8:00 执行（UTC 00:00）
+  workflow_dispatch:         # 支持手动触发
 
 jobs:
   backup:
@@ -14,26 +14,29 @@ jobs:
       WEBDAV_HOST: ${{ secrets.WEBDAV_HOST }}
       WEBDAV_USER: ${{ secrets.WEBDAV_USER }}
       WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
-      BACKUP_PATH: "/huggingface"
+      BACKUP_PATH: "/huggingface"     # 备份根目录
 
     strategy:
       matrix:
         dataset:
-          - "ttanz/sun"      # ← 修改成你的数据集
+          - "ttanz/sun"
           - "ttanz/openlist"
-          # - "org-name/private-dataset"
+          # ==================== 组织下数据集示例 ====================
+          # - "org-name/private-dataset"     # 组织下的私有数据集示例
+          # - "my-company/research-data"
+          # - "another-org/big-dataset"
+          # =========================================================
 
     steps:
-      - name: Install dependencies
+      - name: Install dependencies (Optimized)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y rclone zip unzip
-          
-          # 安装 Hugging Face CLI 和 Python 库
-          pip install --upgrade pip
-          pip install huggingface_hub
+          sudo apt-get update -qq
+          sudo apt-get install -y rclone
 
-      - name: Configure rclone for WebDAV
+          python3 -m pip install --upgrade pip --quiet
+          python3 -m pip install "huggingface_hub[cli]" --quiet --no-cache-dir
+
+      - name: Configure rclone WebDAV
         run: |
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf << EOF
@@ -48,27 +51,26 @@ jobs:
       - name: Login to Hugging Face
         run: |
           huggingface-cli login --token $HF_TOKEN --add-to-git-credential
-          echo "✅ Successfully logged into Hugging Face"
+          echo "✅ Hugging Face 登录成功"
 
       - name: Generate backup date
         id: date
         run: echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Backup dataset - ${{ matrix.dataset }}
+      - name: Backup ${{ matrix.dataset }}
         run: |
           DATASET="${{ matrix.dataset }}"
           DATASET_NAME=$(echo $DATASET | tr '/' '-')
           BACKUP_DIR="${{ env.BACKUP_PATH }}/${{ env.DATE }}/${DATASET_NAME}"
           
-          echo "=== 开始备份: $DATASET ==="
-          echo "备份路径: $BACKUP_DIR"
+          echo "🚀 开始备份: $DATASET"
+          echo "📁 备份路径: $BACKUP_DIR"
           
+          rm -rf ./dataset_backup
           mkdir -p ./dataset_backup
-          rm -rf ./dataset_backup/*
           
           python3 - <<EOF
           from huggingface_hub import snapshot_download
-          
           snapshot_download(
               repo_id="${DATASET}",
               repo_type="dataset",
@@ -77,28 +79,24 @@ jobs:
               allow_patterns=["*"],
               ignore_patterns=[".gitattributes"]
           )
-          print("✅ Dataset downloaded successfully")
+          print("✅ 数据集下载完成")
           EOF
 
-          # 上传到 WebDAV
           echo "📤 正在上传到 WebDAV..."
-          rclone mkdir webdav:"${BACKUP_DIR}"
+          rclone mkdir webdav:"${BACKUP_DIR}" --quiet
           
           rclone sync ./dataset_backup webdav:"${BACKUP_DIR}" \
-            --progress \
             --transfers=8 \
             --checkers=16 \
             --verbose
 
-      - name: Cleanup old backups (keep last 7 days)
+      - name: Cleanup old backups (保留7天)
         if: success()
         run: |
           echo "🧹 清理超过7天的旧备份..."
-          rclone delete webdav:"${{ env.BACKUP_PATH }}" \
-            --min-age 7d \
-            --verbose || true
+          rclone delete webdav:"${{ env.BACKUP_PATH }}" --min-age 7d --quiet || true
 
-      - name: List current backups
+      - name: Show backup list
         if: success()
         run: |
           echo "📋 当前备份列表："
