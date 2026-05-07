@@ -21,19 +21,16 @@ jobs:
         dataset:
           - "ttanz/sun"
           - "ttanz/openlist"
-          # - "org-name/private-dataset"    # 组织数据集示例
+          # - "org-name/private-dataset"   # 组织数据集示例
 
     steps:
-      - name: Install dependencies (Super Fast)
+      - name: Install minimal dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y rclone --no-install-recommends -qq
-          
-          # 快速安装 huggingface_hub
-          python3 -m pip install --upgrade pip --quiet
-          python3 -m pip install "huggingface_hub[cli]" --quiet --no-cache-dir --no-deps
+          python3 -m pip install "huggingface_hub[cli]" --quiet --no-cache-dir
 
-      - name: Configure rclone for WebDAV
+      - name: Configure rclone WebDAV
         run: |
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf << EOF
@@ -60,7 +57,8 @@ jobs:
           DATASET_NAME=$(echo $DATASET | tr '/' '-')
           BACKUP_DIR="${{ env.BACKUP_PATH }}/${{ env.DATE }}/${DATASET_NAME}"
           
-          echo "🚀 开始备份: $DATASET → $BACKUP_DIR"
+          echo "🚀 开始备份: $DATASET"
+          echo "📁 目标路径: $BACKUP_DIR"
           
           rm -rf ./dataset_backup && mkdir -p ./dataset_backup
           
@@ -71,25 +69,20 @@ jobs:
               repo_type="dataset",
               local_dir="./dataset_backup",
               local_dir_use_symlinks=False,
-              allow_patterns=["*"],
-              ignore_patterns=[".gitattributes"]
+              allow_patterns=["*"]
           )
           print("✅ 数据集下载完成")
           EOF
 
-          echo "📤 上传到 WebDAV..."
+          echo "📤 正在上传到 WebDAV..."
           rclone mkdir webdav:"${BACKUP_DIR}" --quiet
           rclone sync ./dataset_backup webdav:"${BACKUP_DIR}" \
             --transfers=8 --checkers=16 --quiet
 
       - name: Cleanup old backups (保留7天)
         if: success()
-        run: |
-          echo "🧹 清理7天前备份..."
-          rclone delete webdav:"${{ env.BACKUP_PATH }}" --min-age 7d --quiet || true
+        run: rclone delete webdav:"${{ env.BACKUP_PATH }}" --min-age 7d --quiet || true
 
-      - name: Show backups
+      - name: Show current backups
         if: success()
-        run: |
-          echo "📋 当前备份："
-          rclone ls webdav:"${{ env.BACKUP_PATH }}" --dirs-only
+        run: rclone ls webdav:"${{ env.BACKUP_PATH }}" --dirs-only
