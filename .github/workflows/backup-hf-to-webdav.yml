@@ -1,89 +1,102 @@
-name: Backup HF Datasets to WebDAV (Multi + 7d + Manual)
+name: Backup Multiple HF Datasets to WebDAV
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0点（北京时间8点）✅ 正确5位
-  workflow_dispatch:     # ✅ 手动触发
+    - cron: '0 2 * * *'        # 每天北京时间上午10点执行
+  workflow_dispatch:           # 支持手动触发
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      WEBDAV_HOST: ${{ secrets.WEBDAV_HOST }}
+      WEBDAV_USER: ${{ secrets.WEBDAV_USER }}
+      WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
+      BACKUP_PATH: "/huggingface"     # WebDAV 备份根目录
+
+    strategy:
+      matrix:
+        dataset:
+          - "ttanz/sun"
+          - "ttanz/openlist"
+          # 在这里继续添加你需要备份的数据集（支持私有）
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
       - name: Install dependencies
         run: |
-          pip install -U pip
-          pip install datasets huggingface_hub
+          sudo apt-get update
+          sudo apt-get install -y rclone tree zip
+
+      - name: Configure rclone for WebDAV
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << EOF
+          [webdav]
+          type = webdav
+          url = ${WEBDAV_HOST}
+          vendor = other
+          user = ${WEBDAV_USER}
+          pass = $(rclone obscure "${WEBDAV_PASS}")
+          EOF
 
       - name: Login to Hugging Face
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          huggingface-cli login --token "$HF_TOKEN"
+        run: huggingface-cli login --token $HF_TOKEN --add-to-git-credential
 
-      - name: Backup datasets
-        run: |
-          mkdir -p backups
-          DATE=$(date -u +%Y-%m-%d)
+      - name: Generate backup date
+        id: date
+        run: echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-          # 你的数据集列表
-          DATASETS=(
-            "ttanz/sun"
-            "ttanz/openlist"
+      - name: Backup dataset - ${{ matrix.dataset }}
+        run: |
+          DATASET="${{ matrix.dataset }}"
+          DATASET_NAME=$(echo $DATASET | tr '/' '-')
+          BACKUP_DIR="${{ env.BACKUP_PATH }}/${{ env.DATE }}/${DATASET_NAME}"
+          
+          echo "=== Backing up: $DATASET ==="
+          echo "Backup path: $BACKUP_DIR"
+          
+          # 创建本地临时目录
+          mkdir -p ./dataset_backup
+          rm -rf ./dataset_backup/*   # 清理上次残留
+          
+          # 下载数据集
+          python3 - <<EOF
+          from huggingface_hub import snapshot_download
+          import os
+          
+          snapshot_download(
+              repo_id="${DATASET}",
+              repo_type="dataset",
+              local_dir="./dataset_backup",
+              local_dir_use_symlinks=False,
+              allow_patterns=["*"],
+              ignore_patterns=[".gitattributes"]
           )
+          print("✅ Dataset download completed.")
+          EOF
 
-          echo "BACKUP_SUCCESS=true" >> $GITHUB_ENV
+          # 上传到 WebDAV
+          echo "Uploading to WebDAV..."
+          rclone mkdir webdav:"${BACKUP_DIR}"
+          
+          rclone sync ./dataset_backup webdav:"${BACKUP_DIR}" \
+            --progress \
+            --transfers=8 \
+            --checkers=16 \
+            --verbose
 
-          for ds in "${DATASETS[@]}"; do
-            echo "===== 正在备份: $ds ====="
-            SAFE_NAME=$(echo "$ds" | tr '/' '_')
-            ARCHIVE="backups/hf_${SAFE_NAME}_${DATE}.tar.gz"
+      - name: Cleanup old backups (keep last 7 days)
+        if: success()
+        run: |
+          echo "🧹 Cleaning up backups older than 7 days..."
+          rclone delete webdav:"${{ env.BACKUP_PATH }}" \
+            --min-age 7d \
+            --verbose || true
 
-            if python -c "
-            from datasets import load_dataset
-            ds = load_dataset('$ds')
-            ds.save_to_disk('./tmp_ds')
-            "; then
-              tar -zcvf "$ARCHIVE" tmp_ds/
-              rm -rf tmp_ds
-            else
-              echo "ERROR: 备份失败 $ds"
-              echo "BACKUP_SUCCESS=false" >> $GITHUB_ENV
-            fi
-          done
-
-      # 上传到 WebDAV (稳定官方 rclone)
-      - name: Upload to WebDAV
-        uses: rclone/rclone-action@v1
-        with:
-          config: |
-            [webdav]
-            type = webdav
-            url = ${{ secrets.WEBDAV_HOST }}
-            vendor = other
-            user = ${{ secrets.WEBDAV_USER }}
-            pass = ${{ secrets.WEBDAV_PASS }}
-          args: copy backups/ webdav:/backups/huggingface/
-
-      # 清理7天前旧文件（仅成功时清理）
-      - name: Clean old backups (keep 7 days)
-        if: env.BACKUP_SUCCESS == 'true'
-        uses: rclone/rclone-action@v1
-        with:
-          config: |
-            [webdav]
-            type = webdav
-            url = ${{ secrets.WEBDAV_HOST }}
-            vendor = other
-            user = ${{ secrets.WEBDAV_USER }}
-            pass = ${{ secrets.WEBDAV_PASS }}
-          args: delete --min-age 7d webdav:/backups/huggingface/
+      - name: List current backups
+        if: success()
+        run: |
+          echo "📋 Current backups on WebDAV:"
+          rclone ls webdav:"${{ env.BACKUP_PATH }}" --dirs-only
