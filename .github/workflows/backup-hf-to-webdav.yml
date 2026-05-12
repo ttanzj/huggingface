@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         dataset:
-          - "ttanz/sun"
+          # - "ttanz/sun"    # 停止备份
           - "ttanz/openlist"
           # - "org-name/private-dataset"   # 组织数据集示例
 
