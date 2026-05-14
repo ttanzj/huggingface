@@ -37,7 +37,7 @@ jobs:
           [webdav]
           type = webdav
           url = ${WEBDAV_HOST}
-          vendor = other
+          vendor = nextcloud
           user = ${WEBDAV_USER}
           pass = $(rclone obscure "${WEBDAV_PASS}")
           EOF
@@ -82,7 +82,7 @@ jobs:
 
       - name: Cleanup old backups (保留7天)
         if: success()
-        run: rclone delete webdav:"${{ env.BACKUP_PATH }}" --min-age 7d --quiet || true
+        run: rclone purge webdav:"${{ env.BACKUP_PATH }}" --min-age 7d --quiet || true
 
       - name: Show current backups
         if: success()
