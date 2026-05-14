@@ -83,13 +83,15 @@ jobs:
       - name: Cleanup old backups (保留7天)
         if: success()
         run: |
-          rclone lsd webdav:"${{ env.BACKUP_PATH }}" 2>/dev/null | awk '{print $5}' | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" | while read old_dir; do
-            rclone purge webdav:"${{ env.BACKUP_PATH }}/$old_dir" --min-age 7d --quiet
-          done
-          true
+          cutoff=$(date -d "7 days ago" +%Y-%m-%d)
+          rclone lsd webdav:"/huggingface" 2>/dev/null | awk '{print $5}' | grep '^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$' | while read d;do
+            if [[ "$d" < "$cutoff" ]];then
+              rclone purge webdav:"/huggingface/$d" --quiet
+            fi
+          done || true
 
       - name: Show current backups
         if: success()
         run: |
-          echo "📋 当前备份日期目录列表："
-          rclone lsd webdav:"${{ env.BACKUP_PATH }}" 2>/dev/null || echo "暂无备份目录"
+          echo "📋 当前备份目录列表："
+          rclone lsd webdav:"${{ env.BACKUP_PATH }}" 2>/dev/null | awk '{print $5}' | grep '^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$'
