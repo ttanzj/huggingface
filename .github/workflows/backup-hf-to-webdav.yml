@@ -2,7 +2,7 @@ name: Backup HF Datasets to WebDAV
 
 on:
   schedule:
-    - rclone: '0 0 * * *'      # 北京时间每天早上 8:00
+    - cron: '0 0 * * *'      # 北京时间每天早上 8:00
   workflow_dispatch:
 
 jobs:
@@ -83,9 +83,10 @@ jobs:
       - name: Cleanup old backups (保留7天)
         if: success()
         run: |
-          rclone lsd webdav:"${{ env.BACKUP_PATH }}" | awk '{print $5}' | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" | while read old_dir; do
+          rclone lsd webdav:"${{ env.BACKUP_PATH }}" 2>/dev/null | awk '{print $5}' | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" | while read old_dir; do
             rclone purge webdav:"${{ env.BACKUP_PATH }}/$old_dir" --min-age 7d --quiet
-          done || true
+          done
+          true
 
       - name: Show current backups
         if: success()
