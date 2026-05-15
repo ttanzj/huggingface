@@ -1,0 +1,28 @@
+name: 手动清理7天前 Actions日志
+
+# 只保留手动触发，彻底关闭定时
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 清理 7 天前运行记录
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 计算7天前 UTC 时间
+          BEFORE=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%SZ)
+          echo "将删除早于：$BEFORE 的所有运行"
+
+          # 筛选并批量删除
+          gh run list --limit 1000 --json databaseId,createdAt \
+          | jq -r --arg t "$BEFORE" '.[] | select(.createdAt < $t) | .databaseId' \
+          | xargs -r -I {} gh run delete {}
+
+          echo "✅ 清理完成"
