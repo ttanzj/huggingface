@@ -1,28 +1,36 @@
-name: 手动清理7天前 Actions日志
-
-# 只保留手动触发，彻底关闭定时
+name: 手动清理 7 天前 Actions 运行记录
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 仅手动触发，无定时
 
 permissions:
   actions: write
   contents: read
 
 jobs:
-  clean:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: 清理 7 天前运行记录
+      # 关键：必须拉取仓库上下文
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 安装 GitHub CLI
+      - name: Install GitHub CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 清理超过 7 天的运行记录
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 计算7天前 UTC 时间
           BEFORE=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%SZ)
-          echo "将删除早于：$BEFORE 的所有运行"
+          echo "🗑️ 将要删除早于：$BEFORE 的所有运行记录"
 
-          # 筛选并批量删除
+          # 批量删除
           gh run list --limit 1000 --json databaseId,createdAt \
-          | jq -r --arg t "$BEFORE" '.[] | select(.createdAt < $t) | .databaseId' \
+          | jq -r --arg time "$BEFORE" \
+            '.[] | select(.createdAt < $time) | .databaseId' \
           | xargs -r -I {} gh run delete {}
 
-          echo "✅ 清理完成"
+          echo "✅ 老旧 Actions 记录清理完毕"
