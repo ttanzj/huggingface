@@ -1,37 +1,51 @@
-name: Keep ttanz/openlist Alive (Daily Random)
+name: Keep ttanz/openlist Alive (No Sleep Random Schedule)
 
 on:
   schedule:
-    - cron: '*/720 * * * *'   # 每 12 小时一次
-  workflow_dispatch:         # 允许手动测试
+    - cron: '17 3 * * *'
+    - cron: '42 11 * * *'
+    - cron: '29 19 * * *'
+  workflow_dispatch:
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
 
     steps:
-      - name: Wake up ttanz/openlist Space
+      - name: 50% probability gate
+        id: gate
         run: |
-          echo "🌟 Starting wake up at $(date -u)"
-          echo "Target: https://ttanz-openlist.hf.space"
-          
-          # ✅ 修复：改用 GET 请求，不再使用 -I（HEAD）
+          R=$(( RANDOM % 100 ))
+          echo "🎯 Random value: $R"
+
+          if [ "$R" -lt 50 ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+            echo "✅ Will ping HF"
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+            echo "⏭ Skip this run"
+          fi
+
+      - name: Ping HuggingFace Space
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          echo "🌐 Pinging HF Space..."
+
           RESPONSE=$(curl -s -L -m 30 \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" \
             -w "HTTP_STATUS:%{http_code}" \
             https://ttanz-openlist.hf.space)
-          
-          # 提取状态码
+
           STATUS=$(echo "$RESPONSE" | sed -n 's/.*HTTP_STATUS://p')
-          
-          echo "✅ Response Status Code: $STATUS"
-          
+
+          echo "📡 Status: $STATUS"
+
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-            echo "✅ Successfully pinged! Space is awake."
+            echo "✅ Success"
           else
-            echo "⚠️  Got unexpected response."
+            echo "⚠️ Unexpected response"
           fi
 
       - name: Summary
-        run: echo "Job completed at $(date -u)"
+        run: echo "Done at $(date -u)"
