@@ -1,10 +1,10 @@
 name: Keep ttanz/sun Alive (No Sleep Random Schedule)
 
-on:
+:
   schedule:
-    - cron: '17 3 * * *'→ Runs at 03:17
-    - cron: '42 11 * * *'→ Runs at 11:42
-    - cron: '29 19 * * *'→ Runs at 19:29
+    - cron: '16 13 * * *'
+    - cron: '40 16 * * *'
+    - cron: '26 18 * * *'
   workflow_dispatch:
 
 jobs:
