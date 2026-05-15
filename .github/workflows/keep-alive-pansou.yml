@@ -1,6 +1,6 @@
 name: Keep ttanz/pansou Alive (No Sleep Random Schedule)
 
-于:
+on:
   schedule:
     - cron: '15 6 * * *'
     - cron: '48 13 * * *'
