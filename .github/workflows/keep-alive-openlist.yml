@@ -2,13 +2,13 @@ name: Keep ttanz/openlist Alive (Daily Random)
 
 on:
   schedule:
-    - cron: '*/720 * * * *'   # 每 12 小时检查一次（GitHub 会随机分配实际运行时间）
+    - cron: '*/720 * * * *'   # 每 12 小时一次
   workflow_dispatch:         # 允许手动测试
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
-    timeout-minutes: 5       # 防止意外卡住，最多跑 5 分钟
+    timeout-minutes: 2
 
     steps:
       - name: Wake up ttanz/openlist Space
@@ -16,18 +16,21 @@ jobs:
           echo "🌟 Starting wake up at $(date -u)"
           echo "Target: https://ttanz-openlist.hf.space"
           
-          # 发送请求（带浏览器 User-Agent，更容易唤醒）
-          RESPONSE=$(curl -I -s -L -m 30 \
-            -A "Mozilla/5.0 (compatible; HF-KeepAlive/1.0)" \
+          # ✅ 修复：改用 GET 请求，不再使用 -I（HEAD）
+          RESPONSE=$(curl -s -L -m 30 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -w "HTTP_STATUS:%{http_code}" \
             https://ttanz-openlist.hf.space)
           
-          echo "Response headers:"
-          echo "$RESPONSE"
+          # 提取状态码
+          STATUS=$(echo "$RESPONSE" | sed -n 's/.*HTTP_STATUS://p')
           
-          if echo "$RESPONSE" | grep -q "200\|302\|503"; then
-            echo "✅ Successfully pinged! Space should be awake now."
+          echo "✅ Response Status Code: $STATUS"
+          
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Successfully pinged! Space is awake."
           else
-            echo "⚠️  Got unexpected response, but ping was sent."
+            echo "⚠️  Got unexpected response."
           fi
 
       - name: Summary
