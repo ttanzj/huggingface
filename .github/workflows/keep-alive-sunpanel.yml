@@ -1,6 +1,6 @@
 name: Keep ttanz/sun Alive (No Sleep Random Schedule)
 
-:
+on:
   schedule:
     - cron: '16 13 * * *'
     - cron: '40 16 * * *'
